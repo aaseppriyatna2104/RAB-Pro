@@ -859,11 +859,12 @@
     .breadcrumb { font-size: 12px; }
   }
 
-  /* Hide hamburger on desktop */
-  .hamburger { display: none; }
-
-  /* Hide bottom nav on desktop */
-  .bottom-nav { display: none; }
+  /* Hide hamburger and bottom nav on desktop */
+  @media (min-width: 769px) {
+    .hamburger { display: none; }
+    .bottom-nav { display: none; }
+    .sidebar-overlay { display: none !important; }
+  }
 
   /* TOAST */
   .toast {
