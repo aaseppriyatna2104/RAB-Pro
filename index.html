@@ -1683,8 +1683,8 @@
         <p>Generate dokumen penawaran otomatis</p>
       </div>
       <div class="btn-group">
-        <button class="btn btn-secondary" onclick="showToast('Generate PDF...')">📄 Export PDF</button>
-        <button class="btn btn-primary" onclick="showToast('Generate DOCX...')">📝 Export DOCX</button>
+        <button class="btn btn-secondary" onclick="exportPenawaranPDF()">📄 Export PDF</button>
+        <button class="btn btn-primary" onclick="exportPenawaranDOCX()">📝 Export DOCX</button>
       </div>
     </div>
 
@@ -2493,6 +2493,278 @@ function exportAHSPPDF() {
       showToast('✅ PDF AHSP berhasil didownload!');
     } catch(e) {
       showToast('❌ Gagal membuat PDF: ' + e.message);
+    }
+  }, 100);
+}
+
+// ── EXPORT PENAWARAN PDF ───────────────────────
+function getPenawaranData() {
+  const inputs = document.querySelectorAll('#page-penawaran .form-input');
+  return {
+    perusahaan: inputs[0]?.value || 'CV Konstruksi Maju',
+    nomorPenawaran: inputs[1]?.value || 'PNW/2026/006/RAB',
+    kepada: inputs[2]?.value || 'Pejabat Pembuat Komitmen',
+    namaProyek: inputs[3]?.value || 'Pembangunan Gedung Serbaguna',
+    nilaiPenawaran: inputs[4]?.value || 'Rp 263.712.000,-',
+    tanggalPenawaran: inputs[5]?.value || '2026-06-01',
+  };
+}
+
+function exportPenawaranPDF() {
+  showToast('Membuat PDF Dokumen Penawaran...');
+  setTimeout(() => {
+    try {
+      const d = getPenawaranData();
+      const doc = getPDFInstance();
+      const tgl = new Date(d.tanggalPenawaran).toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+
+      // ── COVER PAGE ──────────────────────────────
+      doc.setFillColor(30, 38, 64);
+      doc.rect(0, 0, 210, 297, 'F');
+
+      doc.setFillColor(240, 165, 0);
+      doc.rect(0, 80, 210, 5, 'F');
+      doc.rect(0, 212, 210, 5, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(28);
+      doc.setTextColor(240, 165, 0);
+      doc.text('SURAT PENAWARAN', 105, 110, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(14);
+      doc.setTextColor(200, 200, 220);
+      doc.text('HARGA PEKERJAAN', 105, 122, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      doc.text(d.namaProyek.toUpperCase(), 105, 148, { align: 'center', maxWidth: 170 });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(160, 165, 185);
+      doc.text('Diajukan oleh:', 105, 175, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(240, 165, 0);
+      doc.text(d.perusahaan, 105, 185, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(160, 165, 185);
+      doc.text(`No. ${d.nomorPenawaran}`, 105, 228, { align: 'center' });
+      doc.text(tgl, 105, 237, { align: 'center' });
+
+      // ── PAGE 2: SURAT PENAWARAN ──────────────────
+      doc.addPage();
+      let y = pdfHeader(doc, 'Surat Penawaran Harga', d.namaProyek);
+      y += 6;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(50, 50, 70);
+
+      doc.text(`${d.perusahaan}`, 14, y); y += 5;
+      doc.text(`Nomor : ${d.nomorPenawaran}`, 14, y); y += 5;
+      doc.text(`Tanggal : ${tgl}`, 14, y); y += 10;
+
+      doc.text(`Kepada Yth.`, 14, y); y += 5;
+      doc.setFont('helvetica', 'bold');
+      doc.text(d.kepada, 14, y); y += 12;
+
+      doc.setFont('helvetica', 'normal');
+      const intro = `Dengan hormat, bersama surat ini kami dari ${d.perusahaan} mengajukan penawaran harga untuk pekerjaan:`;
+      const introLines = doc.splitTextToSize(intro, 182);
+      doc.text(introLines, 14, y);
+      y += introLines.length * 5 + 4;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 38, 100);
+      doc.text(d.namaProyek, 14, y); y += 10;
+
+      // Summary table
+      doc.autoTable({
+        startY: y,
+        head: [['Uraian', 'Nilai']],
+        body: [
+          ['Subtotal Pekerjaan', 'Rp 206.025.000'],
+          ['PPN (11%)', 'Rp 22.662.750'],
+          ['PPh (2%)', 'Rp 4.120.500'],
+          ['Overhead & Profit (15%)', 'Rp 30.903.750'],
+          ['TOTAL PENAWARAN', d.nilaiPenawaran],
+        ],
+        styles: { fontSize: 10, cellPadding: 3, textColor: [50,50,70] },
+        headStyles: { fillColor: [30, 38, 64], textColor: [240,165,0], fontStyle: 'bold' },
+        bodyStyles: { fillColor: [255,255,255] },
+        alternateRowStyles: { fillColor: [245,246,250] },
+        rowStyles: { 4: { fontStyle: 'bold', fillColor: [240,165,0], textColor: [0,0,0] } },
+        margin: { left: 14, right: 14 },
+      });
+      y = doc.lastAutoTable.finalY + 12;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(50, 50, 70);
+      const closing = 'Demikian penawaran ini kami sampaikan. Atas perhatian dan kepercayaan Bapak/Ibu, kami ucapkan terima kasih.';
+      doc.text(doc.splitTextToSize(closing, 182), 14, y);
+      y += 18;
+
+      doc.text('Hormat kami,', 140, y); y += 6;
+      doc.setFont('helvetica', 'bold');
+      doc.text(d.perusahaan, 140, y); y += 20;
+      doc.line(130, y, 196, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('Direktur Utama', 163, y, { align: 'center' });
+
+      // ── PAGE 3: REKAP HARGA ──────────────────────
+      doc.addPage();
+      y = pdfHeader(doc, 'Rekap Harga Penawaran', d.namaProyek);
+      y += 4;
+
+      doc.autoTable({
+        startY: y,
+        head: [['No', 'Divisi', 'Uraian Pekerjaan', 'Nilai (Rp)']],
+        body: [
+          ['I',   'Persiapan',   'Pekerjaan Persiapan & Mobilisasi', 'Rp 15.400.000'],
+          ['II',  'Struktur',    'Pekerjaan Struktur Beton & Besi',   'Rp 142.800.000'],
+          ['III', 'Arsitektur',  'Pekerjaan Arsitektur & Finishing',  'Rp 87.600.000'],
+          ['IV',  'MEP',         'Mekanikal, Elektrikal & Plumbing',  'Rp 17.912.000'],
+        ],
+        foot: [['', '', 'SUBTOTAL', 'Rp 263.712.000']],
+        styles: { fontSize: 9, cellPadding: 3, textColor: [50,50,70] },
+        headStyles: { fillColor: [30,38,64], textColor: [240,165,0], fontStyle: 'bold' },
+        footStyles: { fillColor: [240,165,0], textColor: [0,0,0], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245,246,250] },
+        margin: { left: 14, right: 14 },
+      });
+
+      pdfFooter(doc);
+      doc.save(`Penawaran_${d.nomorPenawaran.replace(/\//g,'-')}.pdf`);
+      showToast('✅ PDF Penawaran berhasil didownload!');
+    } catch(e) {
+      console.error(e);
+      showToast('❌ Gagal membuat PDF: ' + e.message);
+    }
+  }, 100);
+}
+
+// ── EXPORT PENAWARAN DOCX ──────────────────────
+function exportPenawaranDOCX() {
+  showToast('Membuat DOCX Dokumen Penawaran...');
+  setTimeout(() => {
+    try {
+      const d = getPenawaranData();
+      const tgl = new Date(d.tanggalPenawaran).toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+
+      const html = `
+<html xmlns:o='urn:schemas-microsoft-com:office:office'
+      xmlns:w='urn:schemas-microsoft-com:office:word'
+      xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset='utf-8'>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11pt; color: #222; margin: 40px 60px; }
+  h1 { font-size: 18pt; text-align: center; color: #1e2640; margin-bottom: 4px; }
+  h2 { font-size: 13pt; color: #1e2640; margin: 20px 0 8px; }
+  .subtitle { text-align: center; color: #555; margin-bottom: 20px; font-size: 11pt; }
+  .header-box { background: #f0a500; padding: 10px 16px; margin-bottom: 20px; }
+  .header-box h1 { color: #000; margin:0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th { background: #1e2640; color: #f0a500; padding: 7px 10px; text-align: left; font-size: 10pt; }
+  td { padding: 6px 10px; border: 1px solid #ddd; font-size: 10pt; }
+  tr:nth-child(even) td { background: #f5f6fa; }
+  .tfoot td { background: #f0a500; font-weight: bold; color: #000; }
+  .total-row td { background: #1e2640; color: #f0a500; font-weight: bold; }
+  .signature { margin-top: 40px; float: right; text-align: center; width: 200px; }
+  .sig-line { border-top: 1px solid #222; margin-top: 50px; padding-top: 4px; }
+  p { margin: 6px 0; line-height: 1.6; }
+  .clearfix::after { content:''; display:block; clear:both; }
+</style>
+</head>
+<body>
+
+<div class="header-box">
+  <h1>RAB Pro Professional</h1>
+  <p style="margin:0;color:#333;font-size:10pt">Sistem RAB Konstruksi &mdash; ${tgl}</p>
+</div>
+
+<h1>SURAT PENAWARAN HARGA</h1>
+<p class="subtitle">${d.namaProyek}</p>
+
+<hr style="border:1px solid #1e2640;margin-bottom:16px">
+
+<p><strong>Dari</strong> &nbsp;&nbsp;&nbsp;: ${d.perusahaan}</p>
+<p><strong>Nomor</strong>&nbsp;&nbsp;: ${d.nomorPenawaran}</p>
+<p><strong>Tanggal</strong>: ${tgl}</p>
+
+<br>
+
+<p><strong>Kepada Yth.</strong><br>${d.kepada}</p>
+
+<br>
+
+<p>Dengan hormat, bersama surat ini kami dari <strong>${d.perusahaan}</strong> mengajukan penawaran harga untuk pekerjaan:</p>
+
+<h2>${d.namaProyek}</h2>
+
+<table>
+  <thead><tr><th>Uraian</th><th style="text-align:right">Nilai</th></tr></thead>
+  <tbody>
+    <tr><td>Subtotal Pekerjaan</td><td style="text-align:right">Rp 206.025.000</td></tr>
+    <tr><td>PPN (11%)</td><td style="text-align:right">Rp 22.662.750</td></tr>
+    <tr><td>PPh (2%)</td><td style="text-align:right">Rp 4.120.500</td></tr>
+    <tr><td>Overhead &amp; Profit (15%)</td><td style="text-align:right">Rp 30.903.750</td></tr>
+  </tbody>
+  <tfoot>
+    <tr class="tfoot"><td><strong>TOTAL NILAI PENAWARAN</strong></td><td style="text-align:right"><strong>${d.nilaiPenawaran}</strong></td></tr>
+  </tfoot>
+</table>
+
+<h2>Rekap Per Divisi</h2>
+<table>
+  <thead><tr><th>No</th><th>Divisi</th><th>Uraian Pekerjaan</th><th style="text-align:right">Nilai (Rp)</th></tr></thead>
+  <tbody>
+    <tr><td>I</td><td>Persiapan</td><td>Pekerjaan Persiapan &amp; Mobilisasi</td><td style="text-align:right">Rp 15.400.000</td></tr>
+    <tr><td>II</td><td>Struktur</td><td>Pekerjaan Struktur Beton &amp; Besi</td><td style="text-align:right">Rp 142.800.000</td></tr>
+    <tr><td>III</td><td>Arsitektur</td><td>Pekerjaan Arsitektur &amp; Finishing</td><td style="text-align:right">Rp 87.600.000</td></tr>
+    <tr><td>IV</td><td>MEP</td><td>Mekanikal, Elektrikal &amp; Plumbing</td><td style="text-align:right">Rp 17.912.000</td></tr>
+  </tbody>
+  <tfoot>
+    <tr class="tfoot"><td colspan="3"><strong>GRAND TOTAL</strong></td><td style="text-align:right"><strong>Rp 263.712.000</strong></td></tr>
+  </tfoot>
+</table>
+
+<p>Demikian penawaran ini kami sampaikan. Atas perhatian dan kepercayaan Bapak/Ibu, kami ucapkan terima kasih.</p>
+
+<div class="clearfix">
+  <div class="signature">
+    <p>Hormat kami,<br><strong>${d.perusahaan}</strong></p>
+    <div class="sig-line">Direktur Utama</div>
+  </div>
+</div>
+
+</body>
+</html>`;
+
+      const blob = new Blob(['\ufeff' + html], {
+        type: 'application/msword;charset=utf-8'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Penawaran_${d.nomorPenawaran.replace(/\//g,'-')}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('✅ DOCX Penawaran berhasil didownload!');
+    } catch(e) {
+      console.error(e);
+      showToast('❌ Gagal membuat DOCX: ' + e.message);
     }
   }, 100);
 }
